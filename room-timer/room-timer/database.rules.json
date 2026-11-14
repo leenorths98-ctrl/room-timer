@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "rooms": {
+      ".read": true,
+      "$room": {
+        ".write": "$room.matches(/^r(0[1-9]|1[0-8])$/)",
+        "endAt": { ".validate": "newData.isNumber()" },
+        "flag": { ".validate": "newData.val() === 'in' || newData.val() === 'out'" },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}
