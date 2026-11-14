@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#14151f">
+<title>룸 타이머 보드</title>
+<style>
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{height:100dvh;display:flex;flex-direction:column;background:#15172a;color:#fff;
+  font-family:"Pretendard","Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --gap:clamp(7px,1.6vmin,14px);--rad:clamp(12px,2.6vmin,22px);
+  padding:max(var(--gap),env(safe-area-inset-top)) max(var(--gap),env(safe-area-inset-right)) max(var(--gap),env(safe-area-inset-bottom)) max(var(--gap),env(safe-area-inset-left));
+  gap:var(--gap);touch-action:manipulation;user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit;border:0;cursor:pointer;touch-action:manipulation}
+
+/* 방 18개: 세로 화면 3×6, 가로 화면 6×3 — 스크롤 없이 한 화면 */
+#grid{flex:1;min-height:0;display:grid;gap:var(--gap);grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(6,1fr)}
+@media (orientation:landscape){#grid{grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(3,1fr)}}
+
+.card{container-type:size;display:flex;flex-direction:column;min-width:0;min-height:0;padding:0;overflow:hidden;
+  border-radius:var(--rad);background:#e6ebf5;box-shadow:0 2px 6px rgba(0,0,0,.35);transition:transform .12s}
+.card .head{flex:0 0 30cqh;display:flex;align-items:center;justify-content:space-between;padding:0 8cqw;background:#5f6e80;color:#fff;
+  font-weight:800;font-size:min(12cqw,17cqh);letter-spacing:.02em;transition:background .25s}
+.card .head::after{content:"";width:min(7cqw,9cqh);height:min(7cqw,9cqh);border-radius:50%;background:rgba(255,255,255,.28)}
+.card .body{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2cqh;white-space:nowrap;transition:background .25s}
+.card .main{font-weight:600;font-size:min(12cqw,20cqh);color:#9aa3b5}
+.card .sub{font-weight:700;font-size:min(9.5cqw,12cqh);color:#5b6475}
+.card .sub:empty{display:none}
+
+/* 사용중 */
+.card.active .head{background:#6a50c7}
+.card.active .head::after{background:#c9bcff}
+.card.active .body{background:#e2e8f6}
+.card.active .main{font-weight:800;font-size:min(26cqw,38cqh);color:#161a2b;font-variant-numeric:tabular-nums}
+
+/* 5분 이하: 빨간색 (연장 체크) */
+.card.warn .head{background:#8f1d17}
+.card.warn .head::after{background:#ffb3ab}
+.card.warn .body{background:#d63a2f}
+.card.warn .main,.card.warn.flag-in .main{color:#fff}
+
+/* 입실대기(초록) / 퇴실대기(주황) */
+.card.flag-in .head{background:#3d9a4f}.card.flag-in .body{background:#dcf3df}
+.card.flag-in .main,.card.flag-in .sub{color:#23743a;font-weight:800}
+.card.flag-out .head{background:#d98a2b}.card.flag-out .body{background:#fde9cc}
+.card.flag-out .main,.card.flag-out .sub{color:#a05a0a;font-weight:800}
+.card.flag-in .head::after,.card.flag-out .head::after{background:rgba(255,255,255,.75)}
+.card.empty.flag-in .main,.card.empty.flag-out .main{font-size:min(15cqw,24cqh)}
+.card.active.flag-in .main,.card.active.flag-out .main{color:#161a2b}
+
+/* 시간종료(빨강) — 부드럽게 깜빡임 */
+.card.ended .head{background:#6b2320}
+.card.ended .head::after{background:#ff8f85}
+.card.ended .body{background:#8a342c;animation:pulse 1.8s ease-in-out infinite}
+.card.ended .main{font-weight:800;font-size:min(18cqw,28cqh);color:#f6d2cc;animation:glow 1.8s ease-in-out infinite}
+.card.ended .sub{color:#f0b9b1}
+.card.ended.flag-in .head{background:#3d9a4f}
+.card.ended.flag-out .head{background:#d98a2b}
+@keyframes pulse{0%,100%{background:#7a2c26}50%{background:#cf3a30}}
+@keyframes glow{0%,100%{color:#eec3bc;opacity:.8}50%{color:#fff;opacity:1}}
+@media (prefers-reduced-motion:reduce){.card.ended .body,.card.ended .main{animation-duration:4s}}
+
+.card.selected{outline:3px solid #ffd43b;outline-offset:2px;transform:scale(.97)}
+
+#controls{flex:0 0 auto;display:grid;gap:calc(var(--gap)*.8);padding-top:calc(var(--gap)*.4);border-top:1px solid #2a2d45}
+#bar{display:flex;align-items:center;gap:8px;font-size:12px;min-height:24px}
+#status{flex:1;font-weight:800;font-size:clamp(15px,2.2dvh,20px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#conn.ok{color:#69db7c}#conn.bad{color:#ff6b6b;font-weight:800}#conn.warn{color:#ffd43b}
+#sound{background:#2b2f4a;border-radius:999px;padding:4px 10px;font-size:12px}#sound.on{background:#3d9a4f}
+.row{display:grid;gap:calc(var(--gap)*.8);grid-template-columns:repeat(5,1fr)}
+#mins{display:grid;gap:calc(var(--gap)*.8)}
+@media (orientation:landscape){#mins{grid-template-columns:1fr 1fr}}
+.row.acts{grid-template-columns:repeat(3,1fr)}
+#controls .row button{height:clamp(38px,6.2dvh,58px);border-radius:calc(var(--rad)*.65);font-weight:800;font-size:clamp(13px,2.1dvh,20px);white-space:nowrap;
+  box-shadow:0 2px 0 rgba(0,0,0,.3);transition:transform .08s,filter .08s,opacity .2s}
+#controls .row button:active{transform:translateY(2px);filter:brightness(1.25)}
+#controls .row button:disabled{opacity:.38}
+.minus button{background:#34406a}.plus button{background:#6a50c7}
+[data-act=in]{background:#3d9a4f}[data-act=out]{background:#d98a2b}[data-act=clear]{background:#b93232}
+</style>
+</head>
+<body>
+<main id="grid"></main>
+<section id="controls">
+  <div id="bar"><span id="status">연결 중…</span><span id="conn"></span><button id="sound" type="button">🔕 소리 꺼짐</button></div>
+  <div id="mins">
+    <div class="row minus">
+      <button data-min="-1">−1분</button><button data-min="-10">−10분</button><button data-min="-25">−25분</button><button data-min="-50">−50분</button><button data-min="-100">−100분</button>
+    </div>
+    <div class="row plus">
+      <button data-min="1">+1분</button><button data-min="10">+10분</button><button data-min="25">+25분</button><button data-min="50">+50분</button><button data-min="100">+100분</button>
+    </div>
+  </div>
+  <div class="row acts">
+    <button data-act="in">입실대기</button><button data-act="out">퇴실대기</button><button data-act="clear">퇴실</button>
+  </div>
+</section>
+<script src="firebase-config.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
